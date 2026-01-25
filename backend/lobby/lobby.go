@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/Mech654/chess-server/backend/auth"
 	"github.com/gorilla/websocket"
 )
 
@@ -45,21 +46,24 @@ func New() *Lobby {
 }
 
 func (l *Lobby) ServeWS(w http.ResponseWriter, r *http.Request) {
+	username, err := auth.GetUsernameFromToken(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Upgrade error:", err)
 		return
 	}
 
-	username := r.URL.Query().Get("username")
-	if username == "" {
-		username = "Player_" + r.RemoteAddr
-	}
 	l.mutex.Lock()
 	l.players[conn] = &Player{
 		username: username,
 		conn:     conn,
 		send:     make(chan []byte, 256),
+		handler:  &LobbyHandler{parentLobby: l},
 	}
 	l.mutex.Unlock()
 

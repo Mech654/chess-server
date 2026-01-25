@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/Mech654/chess-server/backend/auth"
 	"github.com/Mech654/chess-server/backend/lobby"
 	"github.com/Mech654/chess-server/frontend-stuff"
 )
@@ -13,8 +14,8 @@ func main() {
 
 	frontend.RegisterRoutes(mux)
 
-	lb := lobby.New()
-	mux.HandleFunc("/ws/lobby", lb.ServeWS)
+	mux.HandleFunc("/join", auth.JoinHandler)
+	mux.HandleFunc("/ws/lobby", lobby.New().ServeWS)
 
 	fmt.Println("Starting server on :80")
 	err := http.ListenAndServe(":80", mux)
