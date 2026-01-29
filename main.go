@@ -17,8 +17,8 @@ func main() {
 	mux.HandleFunc("/join", auth.JoinHandler)
 	mux.HandleFunc("/ws/lobby", lobby.New().ServeWS)
 
-	fmt.Println("Starting server on :80")
-	err := http.ListenAndServe(":80", mux)
+	fmt.Println("Starting server on :8888")
+	err := http.ListenAndServe(":8888", mux)
 	if err != nil {
 		fmt.Println("Error starting server:", err)
 	}
