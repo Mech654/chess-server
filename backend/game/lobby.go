@@ -1,4 +1,4 @@
-package lobby
+package game
 
 import (
 	"encoding/json"
@@ -42,20 +42,14 @@ type LobbyHandler struct {
 	parentLobby *Lobby
 }
 
-type Match struct {
-	match_invite MatchInvite
-}
-
-type MatchInvite struct {
-	ID          uint64
-	from_player *Player
-	to_player   *Player
-	created_at  time.Time
-}
-
 // DTOs
 
 type MatchInviteDTO struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+type MatchAcceptDTO struct {
 	From string `json:"from"`
 	To   string `json:"to"`
 }
@@ -215,11 +209,11 @@ func (lh *LobbyHandler) HandleMessage(p *Player, data []byte) {
 			log.Println("Error creating MatchInvite:", err)
 			return
 		}
-
 		toPlayer.send <- HelperEnvelopeMarshal("MATCH_INVITE", inviteDTO)
 	case "MATCH_ACCEPT":
+		log.Println("MATCH_ACCEPT received")
+		err = lh.NewMatchAccept(p, envelope.Data)
 	}
-
 }
 
 func (lh *LobbyHandler) NewMatchInvite(p *Player, data json.RawMessage) (error, *Player, *MatchInviteDTO) {
@@ -250,8 +244,38 @@ func (lh *LobbyHandler) NewMatchInvite(p *Player, data json.RawMessage) (error, 
 	return nil, toPlayer, &inviteDTO
 }
 
-func (lh *LobbyHandler) NewMatch(p1_username string, p2_username string) *Match {
+func (lh *LobbyHandler) NewMatchAccept(p *Player, data json.RawMessage) error {
+	// Check for existing invite
+	var acceptDTO MatchAcceptDTO
+	HelperUnmarshal(data, &acceptDTO)
+
+	invites_mutex.Lock()
+	defer invites_mutex.Unlock()
+	var foundInvite *MatchInvite
+	for _, invite := range match_invites {
+		if invite.from_player.username == acceptDTO.From && invite.to_player.username == acceptDTO.To {
+			foundInvite = invite
+			break
+		}
+	}
+
+	if foundInvite == nil {
+		log.Println("No matching invite found")
+		return nil
+	}
+
+	delete(match_invites, foundInvite.ID)
+
+	match := &Match{
+		Player1:    foundInvite.from_player,
+		Player2:    foundInvite.to_player,
+		match_info: &MatchInfo{},
+		created_at: time.Now(),
+	}
+	go match.Start()
+
 	return nil
+	// Move
 
 }
 
