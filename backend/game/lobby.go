@@ -267,10 +267,10 @@ func (lh *LobbyHandler) NewMatchAccept(p *Player, data json.RawMessage) error {
 	delete(match_invites, foundInvite.ID)
 
 	match := &Match{
-		Player1:    foundInvite.from_player,
-		Player2:    foundInvite.to_player,
-		match_info: &MatchInfo{},
-		created_at: time.Now(),
+		Player1:     foundInvite.from_player,
+		Player2:     foundInvite.to_player,
+		match_state: &MatchState{},
+		created_at:  time.Now(),
 	}
 	go match.Start()
 
