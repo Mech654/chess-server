@@ -1,5 +1,9 @@
 package chess
 
+import (
+	"math"
+)
+
 type Pawn struct {
 	Mobility Mobility
 }
@@ -28,8 +32,8 @@ func (p *Pawn) IsLegalPieceMove(move Move, board *Board) bool {
 }
 
 func checkBasicMobility(mobility Mobility, move Move, board *Board) bool {
-	dest_piece := board[move.PosTo.X][move.PosTo.Y]
-	if dest_piece.Owner != 3 {
+	destSquare := board.GetSquareAt(move.PosTo)
+	if destSquare.Owner != 3 {
 		return false
 	}
 
@@ -46,5 +50,19 @@ func checkBasicMobility(mobility Mobility, move Move, board *Board) bool {
 }
 
 func checkCapture(move Move, board *Board) bool {
+	destPiece := board[move.PosTo.X][move.PosTo.Y]
+	if destPiece.Owner == 3 {
+		return false
+	}
+
+	dx := move.PosTo.X - move.PosFrom.X
+	dy := move.PosTo.Y - move.PosFrom.Y
+
+	if int(math.Abs(float64(dx))) != 1 {
+		return false
+	}
+	if dy != 1 {
+		return false
+	}
 	return true
 }

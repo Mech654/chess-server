@@ -15,9 +15,9 @@ type Match struct {
 }
 
 type MatchState struct {
-	FirstMove string
-	Turn      string
-	Board     chess.Board
+	WhitePlayer string
+	Turn        string
+	Board       chess.Board
 }
 
 type MatchInvite struct {
@@ -45,19 +45,19 @@ func (m *Match) Start() {
 	m.Player2.handler = matchHandler
 
 	if rand.Intn(2) == 1 {
-		m.MatchState.FirstMove = m.Player1.username
+		m.MatchState.WhitePlayer = m.Player1.username
 	} else {
-		m.MatchState.FirstMove = m.Player2.username
+		m.MatchState.WhitePlayer = m.Player2.username
 	}
-	m.MatchState.Turn = m.MatchState.FirstMove
+	m.MatchState.Turn = m.MatchState.WhitePlayer
 
 	m.Player1.send <- HelperEnvelopeMarshal("MATCH_START", map[string]string{
 		"opponent":   m.Player2.username,
-		"first_move": m.MatchState.FirstMove,
+		"first_move": m.MatchState.WhitePlayer,
 	})
 	m.Player2.send <- HelperEnvelopeMarshal("MATCH_START", map[string]string{
 		"opponent":   m.Player1.username,
-		"first_move": m.MatchState.FirstMove,
+		"first_move": m.MatchState.WhitePlayer,
 	})
 
 	for {
@@ -75,17 +75,16 @@ func (m *MatchHandler) HandleMessage(p *Player, data []byte) {
 
 	var moveDTO MoveDTO
 	HelperUnmarshal(data, &moveDTO)
-
-	move := &chess.Move{
-		PosFrom: chess.Coordinates{X: moveDTO.PosFrom[0], Y: moveDTO.PosFrom[1]},
-		PosTo:   chess.Coordinates{X: moveDTO.PosTo[0], Y: moveDTO.PosTo[1]},
-		Piece:   m.match.MatchState.Board[moveDTO.PosFrom[0]][moveDTO.PosFrom[1]],
-	}
+	move := makeMove(p, m.match.MatchState.WhitePlayer, &moveDTO)
 
 	//Basic Match Move Validation
+	if err := GenericMatchMoveValidation(move, m.match.MatchState.Board); err != "" {
+		p.send <- HelperEnvelopeMarshal("ERROR", err)
+		return
+	}
 
 	// Check Game Rules + Match Situation here
-	valid := move.Piece.IsLegalPieceMove(*move, &m.match.MatchState.Board)
+	valid := chess.IsLegalMove(*move, &m.match.MatchState.Board)
 	if !valid {
 		p.send <- HelperEnvelopeMarshal("ERROR", "Illegal Move")
 		return
@@ -93,10 +92,58 @@ func (m *MatchHandler) HandleMessage(p *Player, data []byte) {
 
 }
 
-// I changed mind, No need to reverse the board when
-// the only case it would even matter is pawn movement
-// We will just translate the (x,y) coordinates with this function
-// TODO: Remove comment
-func reversal() {
+func GenericMatchMoveValidation(move *chess.Move, board chess.Board) string {
+	// Check if piece exists at source
+	sourceSquare := board.GetSquareAt(move.PosFrom)
+	if sourceSquare.Owner == 3 {
+		return "No piece at source position"
+	}
 
+	// Check if destination is within bounds
+	if move.PosTo.X < 0 || move.PosTo.X >= 8 || move.PosTo.Y < 0 || move.PosTo.Y >= 8 {
+		return "Destination out of bounds"
+	}
+
+	// Check if moving player's own piece
+	if move.Player != sourceSquare.Owner {
+		return "Cannot move opponent's piece"
+	}
+
+	// Check if destination is occupied by player's own piece
+	destSquare := board.GetSquareAt(move.PosTo)
+	if destSquare.Owner == move.Player {
+		return "Cannot capture your own piece"
+	}
+
+	return ""
+}
+
+func reverseMoveDTO(moveDTO *MoveDTO) *MoveDTO {
+	return &MoveDTO{
+		PosFrom: [2]int{7 - moveDTO.PosFrom[0], 7 - moveDTO.PosFrom[1]},
+		PosTo:   [2]int{7 - moveDTO.PosTo[0], 7 - moveDTO.PosTo[1]},
+	}
+}
+
+func makeMove(p *Player, whitePlayer string, moveDTO *MoveDTO) *chess.Move {
+	// Determine player number (1=white, 2=black)
+	playerNum := 2 // Black player
+	if p.username == whitePlayer {
+		playerNum = 1 // White player
+	}
+
+	reversed := false
+	if playerNum == 2 {
+		moveDTO = reverseMoveDTO(moveDTO)
+		reversed = true
+	}
+
+	move := &chess.Move{
+		PosFrom:      chess.Coordinates{X: moveDTO.PosFrom[0], Y: moveDTO.PosFrom[1]},
+		PosTo:        chess.Coordinates{X: moveDTO.PosTo[0], Y: moveDTO.PosTo[1]},
+		Player:       playerNum,
+		MoveReversed: reversed,
+	}
+
+	return move
 }

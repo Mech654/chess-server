@@ -1,13 +1,17 @@
 package chess
 
-type Piece struct {
+type BoardSquare struct {
 	Type  PieceType
 	Owner int // 1,  2 or 3 for empty
 }
 
-type Board [8][8]*Piece
+type Board [8][8]*BoardSquare
 
-type piece interface {
+func (b *Board) GetSquareAt(pos Coordinates) *BoardSquare {
+	return b[pos.X][pos.Y]
+}
+
+type Piece interface {
 	IsLegalPieceMove(move Move, board *Board) bool
 }
 
@@ -25,20 +29,24 @@ const (
 )
 
 type Move struct {
-	PosFrom Coordinates
-	PosTo   Coordinates
-	Piece   *Piece
+	PosFrom      Coordinates
+	PosTo        Coordinates
+	Player       int // 1 for white, 2 for black
+	MoveReversed bool
 }
 
-func (p *Piece) IsLegalPieceMove(move Move, board *Board) bool {
-	switch p.Type {
+func IsLegalMove(move Move, board *Board) bool {
+	square := board.GetSquareAt(move.PosFrom)
+
+	var validator Piece
+	switch square.Type {
 	case PawnType:
-		pawn := &Pawn{}
-		return pawn.IsLegalPieceMove(move, board)
+		validator = &Pawn{}
 	// Add other piece types here
 	default:
 		return false
 	}
+	return validator.IsLegalPieceMove(move, board)
 }
 
 type Coordinates struct {
