@@ -17,9 +17,9 @@ var upgrader = websocket.Upgrader{
 }
 
 var (
-	invite_counter uint64
-	match_invites  = make(map[uint64]*MatchInvite)
-	invites_mutex  sync.Mutex
+	inviteCounter uint64
+	matchInvites  = make(map[uint64]*MatchInvite)
+	invitesMutex  sync.Mutex
 )
 
 type Player struct {
@@ -39,7 +39,7 @@ type MessageHandler interface {
 }
 
 type LobbyHandler struct {
-	parentLobby *Lobby
+	lobby *Lobby
 }
 
 // DTOs
@@ -80,12 +80,12 @@ func HelperUnmarshal(data []byte, v any) error {
 	return nil
 }
 
-func (mi *MatchInvite) Timer() {
+func (mi *MatchInvite) timer() {
 	time.Sleep(30 * time.Second)
-	invites_mutex.Lock()
-	defer invites_mutex.Unlock()
+	invitesMutex.Lock()
+	defer invitesMutex.Unlock()
 
-	delete(match_invites, mi.ID)
+	delete(matchInvites, mi.ID)
 }
 
 func (c *Player) writePump() {
@@ -126,7 +126,7 @@ func (l *Lobby) ServeWS(w http.ResponseWriter, r *http.Request) {
 		username: username,
 		conn:     conn,
 		send:     make(chan []byte, 256),
-		handler:  &LobbyHandler{parentLobby: l},
+		handler:  &LobbyHandler{lobby: l},
 	}
 	l.mutex.Unlock()
 
@@ -204,7 +204,7 @@ func (lh *LobbyHandler) HandleMessage(p *Player, data []byte) {
 
 	switch envelope.Type {
 	case "MATCH_INVITE":
-		err, toPlayer, inviteDTO := lh.NewMatchInvite(p, envelope.Data)
+		toPlayer, inviteDTO, err := lh.NewMatchInvite(p, envelope.Data)
 		if err != nil {
 			log.Println("Error creating MatchInvite:", err)
 			return
@@ -216,32 +216,32 @@ func (lh *LobbyHandler) HandleMessage(p *Player, data []byte) {
 	}
 }
 
-func (lh *LobbyHandler) NewMatchInvite(p *Player, data json.RawMessage) (error, *Player, *MatchInviteDTO) {
-	newID := atomic.AddUint64(&invite_counter, 1)
+func (lh *LobbyHandler) NewMatchInvite(p *Player, data json.RawMessage) (*Player, *MatchInviteDTO, error) {
+	newID := atomic.AddUint64(&inviteCounter, 1)
 
 	var inviteDTO MatchInviteDTO
 	HelperUnmarshal(data, &inviteDTO)
 	inviteDTO.From = p.username
 
-	toPlayer := findPlayerByUsername(lh.parentLobby, inviteDTO.To)
+	toPlayer := findPlayerByUsername(lh.lobby, inviteDTO.To)
 	if toPlayer == nil {
 		return nil, nil, nil
 	}
 
 	invite := MatchInvite{
-		ID:          newID,
-		from_player: p,
-		to_player:   toPlayer,
-		created_at:  time.Now(),
+		ID:         newID,
+		FromPlayer: p,
+		ToPlayer:   toPlayer,
+		CreatedAt:  time.Now(),
 	}
 
-	invites_mutex.Lock()
-	match_invites[newID] = &invite
-	invites_mutex.Unlock()
+	invitesMutex.Lock()
+	matchInvites[newID] = &invite
+	invitesMutex.Unlock()
 
-	go invite.Timer()
+	go invite.timer()
 
-	return nil, toPlayer, &inviteDTO
+	return toPlayer, &inviteDTO, nil
 }
 
 func (lh *LobbyHandler) NewMatchAccept(p *Player, data json.RawMessage) error {
@@ -249,11 +249,11 @@ func (lh *LobbyHandler) NewMatchAccept(p *Player, data json.RawMessage) error {
 	var acceptDTO MatchAcceptDTO
 	HelperUnmarshal(data, &acceptDTO)
 
-	invites_mutex.Lock()
-	defer invites_mutex.Unlock()
+	invitesMutex.Lock()
+	defer invitesMutex.Unlock()
 	var foundInvite *MatchInvite
-	for _, invite := range match_invites {
-		if invite.from_player.username == acceptDTO.From && invite.to_player.username == acceptDTO.To {
+	for _, invite := range matchInvites {
+		if invite.FromPlayer.username == acceptDTO.From && invite.ToPlayer.username == acceptDTO.To {
 			foundInvite = invite
 			break
 		}
@@ -264,13 +264,13 @@ func (lh *LobbyHandler) NewMatchAccept(p *Player, data json.RawMessage) error {
 		return nil
 	}
 
-	delete(match_invites, foundInvite.ID)
+	delete(matchInvites, foundInvite.ID)
 
 	match := &Match{
-		Player1:     foundInvite.from_player,
-		Player2:     foundInvite.to_player,
-		match_state: &MatchState{},
-		created_at:  time.Now(),
+		Player1:    foundInvite.FromPlayer,
+		Player2:    foundInvite.ToPlayer,
+		MatchState: &MatchState{},
+		CreatedAt:  time.Now(),
 	}
 	go match.Start()
 

@@ -17,24 +17,24 @@ func (p *Pawn) GetMobility() Mobility {
 }
 
 // For pawn we need a slightly different approach as its capture method conflicts with its normal movement, so we need one to be true not all.
-func (p *Pawn) IsLegalPieceMove(move Move, board [8][8]*Piece) bool {
-	valid := checkBasicMobility(p.GetMobility(), move, &board)
+func (p *Pawn) IsLegalPieceMove(move Move, board *Board) bool {
+	valid := checkBasicMobility(p.GetMobility(), move, board)
 	if valid {
 		return true
 	}
 
-	valid = checkCapture(move, &board)
+	valid = checkCapture(move, board)
 	return valid
 }
 
-func checkBasicMobility(mobility Mobility, move Move, board *[8][8]*Piece) bool {
-	dest_piece := (*board)[move.PosTo[0]][move.PosTo[1]]
+func checkBasicMobility(mobility Mobility, move Move, board *Board) bool {
+	dest_piece := board[move.PosTo.X][move.PosTo.Y]
 	if dest_piece.Owner != 3 {
 		return false
 	}
 
-	dx := move.PosTo[0] - move.PosFrom[0]
-	dy := move.PosTo[1] - move.PosFrom[1]
+	dx := move.PosTo.X - move.PosFrom.X
+	dy := move.PosTo.Y - move.PosFrom.Y
 
 	if dx != mobility.X {
 		return false
@@ -45,6 +45,6 @@ func checkBasicMobility(mobility Mobility, move Move, board *[8][8]*Piece) bool 
 	return true
 }
 
-func checkCapture(move Move, board *[8][8]*Piece) bool {
+func checkCapture(move Move, board *Board) bool {
 	return true
 }

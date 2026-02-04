@@ -5,8 +5,10 @@ type Piece struct {
 	Owner int // 1,  2 or 3 for empty
 }
 
+type Board [8][8]*Piece
+
 type piece interface {
-	IsLegalPieceMove(move Move, board [8][8]*Piece) bool
+	IsLegalPieceMove(move Move, board *Board) bool
 }
 
 // Wanabe enum class
@@ -23,12 +25,12 @@ const (
 )
 
 type Move struct {
-	PosFrom [2]int
-	PosTo   [2]int
+	PosFrom Coordinates
+	PosTo   Coordinates
 	Piece   *Piece
 }
 
-func (p *Piece) IsLegalPieceMove(move Move, board [8][8]*Piece) bool {
+func (p *Piece) IsLegalPieceMove(move Move, board *Board) bool {
 	switch p.Type {
 	case PawnType:
 		pawn := &Pawn{}
@@ -37,4 +39,9 @@ func (p *Piece) IsLegalPieceMove(move Move, board [8][8]*Piece) bool {
 	default:
 		return false
 	}
+}
+
+type Coordinates struct {
+	X int
+	Y int
 }
