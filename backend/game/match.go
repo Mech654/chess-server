@@ -5,11 +5,12 @@ import (
 	"time"
 
 	"github.com/Mech654/chess-server/backend/chess"
+	"github.com/Mech654/chess-server/backend/ws"
 )
 
 type Match struct {
-	Player1    *Player
-	Player2    *Player
+	Player1    *ws.Client
+	Player2    *ws.Client
 	MatchState *MatchState
 	CreatedAt  time.Time
 }
@@ -22,8 +23,8 @@ type MatchState struct {
 
 type MatchInvite struct {
 	ID         uint64
-	FromPlayer *Player
-	ToPlayer   *Player
+	FromClient *ws.Client
+	ToClient   *ws.Client
 	CreatedAt  time.Time
 }
 
@@ -36,57 +37,61 @@ type MoveDTO struct {
 	PosTo   [2]int `json:"pos_to"`
 }
 
+func (mh *MatchHandler) HandleConnect(client *ws.Client) {
+	//TODO: As of now, I will likely use this to implement re-connect if I
+	// can figure that out. And another plan is match join link, so people
+	// dont have to join my "intuitive" lobby.
+}
+
+func (mh *MatchHandler) HandleDisconnect(client *ws.Client) {
+	//TODO: handle disconnect - forfeit or pause?
+}
+
 func (m *Match) Start() {
-	matchHandler := &MatchHandler{
-		match: m,
-	}
-
-	m.Player1.handler = matchHandler
-	m.Player2.handler = matchHandler
-
 	if rand.Intn(2) == 1 {
-		m.MatchState.WhitePlayer = m.Player1.username
+		m.MatchState.WhitePlayer = m.Player1.Username
 	} else {
-		m.MatchState.WhitePlayer = m.Player2.username
+		m.MatchState.WhitePlayer = m.Player2.Username
 	}
 	m.MatchState.Turn = m.MatchState.WhitePlayer
 
-	m.Player1.send <- HelperEnvelopeMarshal("MATCH_START", map[string]string{
-		"opponent":   m.Player2.username,
+	m.Player1.Send(ws.EnvelopeMarshal("MATCH_START", map[string]string{
+		"opponent":   m.Player2.Username,
 		"first_move": m.MatchState.WhitePlayer,
-	})
-	m.Player2.send <- HelperEnvelopeMarshal("MATCH_START", map[string]string{
-		"opponent":   m.Player1.username,
+	}))
+	m.Player2.Send(ws.EnvelopeMarshal("MATCH_START", map[string]string{
+		"opponent":   m.Player1.Username,
 		"first_move": m.MatchState.WhitePlayer,
-	})
+	}))
 
 	for {
 		time.Sleep(30 * time.Minute)
 	}
 }
 
-// Entry Point here
-func (m *MatchHandler) HandleMessage(p *Player, data []byte) {
-	//Check If Turn
-	if m.match.MatchState.Turn != p.username {
-		p.send <- HelperEnvelopeMarshal("ERROR", "Not your turn")
+func (m *MatchHandler) HandleMessage(client *ws.Client, data []byte) {
+	var envelope ws.Envelope
+	if err := ws.Unmarshal(data, &envelope); err != nil {
+		return
+	}
+
+	if m.match.MatchState.Turn != client.Username {
+		client.Send(ws.EnvelopeMarshal("ERROR", "Not your turn"))
 		return
 	}
 
 	var moveDTO MoveDTO
-	HelperUnmarshal(data, &moveDTO)
-	move := makeMove(p, m.match.MatchState.WhitePlayer, &moveDTO)
+	ws.Unmarshal(envelope.Data, &moveDTO)
+	move := makeMove(client, m.match.MatchState.WhitePlayer, &moveDTO)
 
-	//Basic Match Move Validation
 	if err := GenericMatchMoveValidation(move, m.match.MatchState.Board); err != "" {
-		p.send <- HelperEnvelopeMarshal("ERROR", err)
+		client.Send(ws.EnvelopeMarshal("ERROR", err))
 		return
 	}
 
-	// Check Game Rules + Match Situation here
 	valid := chess.IsLegalMove(*move, &m.match.MatchState.Board)
 	if !valid {
-		p.send <- HelperEnvelopeMarshal("ERROR", "Illegal Move")
+		client.Send(ws.EnvelopeMarshal("ERROR", "Illegal Move"))
 		return
 	}
 
@@ -125,11 +130,10 @@ func reverseMoveDTO(moveDTO *MoveDTO) *MoveDTO {
 	}
 }
 
-func makeMove(p *Player, whitePlayer string, moveDTO *MoveDTO) *chess.Move {
-	// Determine player number (1=white, 2=black)
-	playerNum := 2 // Black player
-	if p.username == whitePlayer {
-		playerNum = 1 // White player
+func makeMove(client *ws.Client, whitePlayer string, moveDTO *MoveDTO) *chess.Move {
+	playerNum := 2
+	if client.Username == whitePlayer {
+		playerNum = 1
 	}
 
 	reversed := false
