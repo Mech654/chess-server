@@ -17,7 +17,7 @@ var (
 )
 
 type Lobby struct {
-	clients map[*ws.Client]bool
+	clients map[*ws.Client]struct{}
 	mutex   sync.Mutex
 }
 
@@ -45,7 +45,7 @@ func (mi *MatchInvite) timer() {
 
 func NewLobby() *Lobby {
 	return &Lobby{
-		clients: make(map[*ws.Client]bool),
+		clients: make(map[*ws.Client]struct{}),
 	}
 }
 
@@ -55,7 +55,7 @@ func NewHandler(lobby *Lobby) *LobbyHandler {
 
 func (lh *LobbyHandler) HandleConnect(client *ws.Client) {
 	lh.lobby.mutex.Lock()
-	lh.lobby.clients[client] = true
+	lh.lobby.clients[client] = struct{}{}
 	lh.lobby.mutex.Unlock()
 
 	log.Printf("%s joined the lobby", client.Username)
