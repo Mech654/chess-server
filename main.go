@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/Mech654/chess-server/backend/auth"
@@ -15,23 +16,12 @@ func main() {
 
 	frontend.RegisterRoutes(mux)
 
-	wsServer := ws.NewServer()
-	lobby := game.NewLobby()
-	lobbyHandler := game.NewHandler(lobby)
+	lobbyHandler := game.NewHandler(game.NewLobby())
 
 	mux.HandleFunc("/join", auth.JoinHandler)
-	mux.HandleFunc("/ws/lobby", func(w http.ResponseWriter, r *http.Request) {
-		username, err := auth.GetUsernameFromToken(r)
-		if err != nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-		wsServer.ServeWS(w, r, username, lobbyHandler)
-	})
+	mux.HandleFunc("/ws/lobby", ws.WSHandler(lobbyHandler))
+	// TODO: Put another for match handler, "/ws/match"
 
 	fmt.Println("Starting server on :8888")
-	err := http.ListenAndServe(":8888", mux)
-	if err != nil {
-		fmt.Println("Error starting server:", err)
-	}
+	log.Fatal(http.ListenAndServe(":8888", mux))
 }
