@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Mech654/chess-server/backend/chess"
 	"github.com/Mech654/chess-server/backend/ws"
 )
 
@@ -160,7 +161,7 @@ func (lh *LobbyHandler) NewMatchAccept(client *ws.Client, data json.RawMessage) 
 	match := &Match{
 		Player1:    foundInvite.FromClient,
 		Player2:    foundInvite.ToClient,
-		MatchState: &MatchState{},
+		MatchState: &MatchState{Board: chess.NewBoard()},
 		CreatedAt:  time.Now(),
 	}
 
