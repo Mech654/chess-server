@@ -18,7 +18,7 @@ type Match struct {
 type MatchState struct {
 	WhitePlayer string
 	Turn        string
-	Board       chess.Board
+	GameState   *chess.GameState
 }
 
 type MatchInvite struct {
@@ -84,12 +84,12 @@ func (m *MatchHandler) HandleMessage(client *ws.Client, data []byte) {
 	ws.Unmarshal(envelope.Data, &moveDTO)
 	move := makeMove(client, m.match.MatchState.WhitePlayer, &moveDTO)
 
-	if err := GenericMatchMoveValidation(move, m.match.MatchState.Board); err != "" {
+	if err := GenericMatchMoveValidation(move, &m.match.MatchState.GameState.Board); err != "" {
 		client.Send(ws.EnvelopeMarshal("ERROR", err))
 		return
 	}
 
-	valid := chess.IsLegalMove(*move, &m.match.MatchState.Board)
+	valid := chess.IsLegalMove(*move, m.match.MatchState.GameState)
 	if !valid {
 		client.Send(ws.EnvelopeMarshal("ERROR", "Illegal Move"))
 		return
@@ -97,7 +97,7 @@ func (m *MatchHandler) HandleMessage(client *ws.Client, data []byte) {
 
 }
 
-func GenericMatchMoveValidation(move *chess.Move, board chess.Board) string {
+func GenericMatchMoveValidation(move *chess.Move, board *chess.Board) string {
 	// Check if piece exists at source
 	sourceSquare := board.GetSquareAt(move.PosFrom)
 	if sourceSquare.Owner == 3 {

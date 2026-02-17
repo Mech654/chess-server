@@ -161,7 +161,7 @@ func (lh *LobbyHandler) NewMatchAccept(client *ws.Client, data json.RawMessage) 
 	match := &Match{
 		Player1:    foundInvite.FromClient,
 		Player2:    foundInvite.ToClient,
-		MatchState: &MatchState{Board: chess.NewBoard()},
+		MatchState: &MatchState{GameState: chess.NewGameState()},
 		CreatedAt:  time.Now(),
 	}
 

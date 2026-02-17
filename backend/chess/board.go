@@ -11,8 +11,13 @@ func (b *Board) GetSquareAt(pos Coordinates) *BoardSquare {
 	return b[pos.X][pos.Y]
 }
 
+type GameState struct {
+	Board       Board
+	MoveRecords MoveRecords
+}
+
 type Piece interface {
-	IsLegalPieceMove(move Move, board *Board) bool
+	IsLegalPieceMove(move Move, gameState *GameState) bool
 }
 
 // Wanabe enum class
@@ -35,8 +40,8 @@ type Move struct {
 	MoveReversed bool
 }
 
-func IsLegalMove(move Move, board *Board) bool {
-	square := board.GetSquareAt(move.PosFrom)
+func IsLegalMove(move Move, gameState *GameState) bool {
+	square := gameState.Board.GetSquareAt(move.PosFrom)
 
 	var validator Piece
 	switch square.Type {
@@ -46,7 +51,7 @@ func IsLegalMove(move Move, board *Board) bool {
 	default:
 		return false
 	}
-	return validator.IsLegalPieceMove(move, board)
+	return validator.IsLegalPieceMove(move, gameState)
 }
 
 type Coordinates struct {
@@ -93,4 +98,11 @@ func NewBoard() Board {
 	}
 
 	return board
+}
+
+func NewGameState() *GameState {
+	return &GameState{
+		Board:       NewBoard(),
+		MoveRecords: MoveRecords{},
+	}
 }
