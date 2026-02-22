@@ -54,7 +54,7 @@ func checkBasicMobility(mobility Mobility, move Move, board *Board) bool {
 			return false
 		}
 
-		if dy == 2 && move.PosFrom.Y != 1 {
+		if dy == 2 && move.PosFrom.Y != 1 && isPathClear(move.PosFrom, move.PosTo, board){
 			return false
 		}
 	} else if move.Player == 2 {
@@ -62,7 +62,7 @@ func checkBasicMobility(mobility Mobility, move Move, board *Board) bool {
 			return false
 		}
 
-		if dy == -2 && move.PosFrom.Y != 6 {
+		if dy == -2 && move.PosFrom.Y != 6 && isPathClear(move.PosFrom, move.PosTo, board){
 			return false
 		}
 	}

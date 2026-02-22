@@ -106,3 +106,27 @@ func NewGameState() *GameState {
 		MoveRecords: MoveRecords{},
 	}
 }
+
+func sign(n int) int {
+	if n > 0 {
+		return 1
+	} else if n < 0 {
+		return -1
+	}
+	return 0
+}
+
+func isPathClear(from, to Coordinates, board *Board) bool {
+	stepX := sign(to.X - from.X)
+	stepY := sign(to.Y - from.Y)
+
+	x, y := from.X+stepX, from.Y+stepY
+	for x != to.X || y != to.Y {
+		if board.GetSquareAt(Coordinates{x, y}).Owner != 3 {
+			return false
+		}
+		x += stepX
+		y += stepY
+	}
+	return true
+}
