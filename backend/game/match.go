@@ -95,6 +95,65 @@ func (m *MatchHandler) HandleMessage(client *ws.Client, data []byte) {
 		return
 	}
 
+	// Check for check
+	if IsKingInCheck(&m.match.MatchState.GameState.Board, move.Player) {
+		client.Send(ws.EnvelopeMarshal("ERROR", "Move would put king in check"))
+		return
+	}
+}
+
+func IsKingInCheck(board *chess.Board, player int) bool {
+	kingPos := findKingPosition(board, player)
+	opponent := 3 - player
+	tempState := &chess.GameState{Board: *board}
+
+	// Check all opponent pieces (max 16)
+	for x := 0; x < 8; x++ {
+		for y := 0; y < 8; y++ {
+			square := board[x][y]
+			if square.Owner == opponent {
+				attackMove := chess.Move{
+					PosFrom: chess.Coordinates{x, y},
+					PosTo:   kingPos,
+					Player:  opponent,
+				}
+
+				var attacker chess.Piece
+				switch square.Type {
+				case chess.PawnType:
+					attacker = &chess.Pawn{}
+				case chess.RookType:
+					attacker = &chess.Rook{}
+				case chess.KnightType:
+					attacker = &chess.Knight{}
+				case chess.BishopType:
+					attacker = &chess.Bishop{}
+				case chess.QueenType:
+					attacker = &chess.Queen{}
+				case chess.KingType:
+					attacker = &chess.King{}
+				}
+
+				if attacker.IsLegalPieceMove(attackMove, tempState) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func findKingPosition(board *chess.Board, player int) chess.Coordinates {
+	for x := 0; x < 8; x++ {
+		for y := 0; y < 8; y++ {
+			square := board[x][y]
+			if square.Owner == player && square.Type == chess.KingType {
+				return chess.Coordinates{x, y}
+			}
+		}
+	}
+	
+	return chess.Coordinates{-1, -1}
 }
 
 func GenericMatchMoveValidation(move *chess.Move, board *chess.Board) string {
