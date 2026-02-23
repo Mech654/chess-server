@@ -47,7 +47,16 @@ func IsLegalMove(move Move, gameState *GameState) bool {
 	switch square.Type {
 	case PawnType:
 		validator = &Pawn{}
-	// Add other piece types here
+	case RookType:
+		validator = &Rook{}
+	case KnightType:
+		validator = &Knight{}
+	case BishopType:
+		validator = &Bishop{}
+	case QueenType:
+		validator = &Queen{}
+	case KingType:
+		validator = &King{}
 	default:
 		return false
 	}
