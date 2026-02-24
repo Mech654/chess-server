@@ -69,6 +69,14 @@ func (m *Match) Start() {
 	}
 }
 
+func (m *Match) changeTurn() {
+	if m.MatchState.Turn == m.Player1.Username {
+		m.MatchState.Turn = m.Player2.Username
+	} else {
+		m.MatchState.Turn = m.Player1.Username
+	}
+}
+
 func (m *MatchHandler) HandleMessage(client *ws.Client, data []byte) {
 	var envelope ws.Envelope
 	if err := ws.Unmarshal(data, &envelope); err != nil {
@@ -95,11 +103,46 @@ func (m *MatchHandler) HandleMessage(client *ws.Client, data []byte) {
 		return
 	}
 
-	// Check for check
 	if IsKingInCheck(&m.match.MatchState.GameState.Board, move.Player) {
 		client.Send(ws.EnvelopeMarshal("ERROR", "Move would put king in check"))
 		return
 	}
+
+	// Apply the move
+	m.match.MatchState.GameState.ApplyMove(*move)
+	m.match.changeTurn()
+	clientSendUpdate(m.match, moveDTO)
+}
+
+func clientSendUpdate(match *Match, moveDTO MoveDTO) {
+	if match.Player1.Username == match.MatchState.WhitePlayer {
+		match.Player1.Send(ws.EnvelopeMarshal("MOVE_MADE", UpdateDTO{
+			lastMove: moveDTO,
+			turnnow:  match.MatchState.Turn,
+		}))
+	} else {
+		match.Player1.Send(ws.EnvelopeMarshal("MOVE_MADE", UpdateDTO{
+			lastMove: *reverseMoveDTO(&moveDTO),
+			turnnow:  match.MatchState.Turn,
+		}))
+	}
+
+	if match.Player2.Username == match.MatchState.WhitePlayer {
+		match.Player2.Send(ws.EnvelopeMarshal("MOVE_MADE", UpdateDTO{
+			lastMove: moveDTO,
+			turnnow:  match.MatchState.Turn,
+		}))
+	} else {
+		match.Player2.Send(ws.EnvelopeMarshal("MOVE_MADE", UpdateDTO{
+			lastMove: *reverseMoveDTO(&moveDTO),
+			turnnow:  match.MatchState.Turn,
+		}))
+	}
+}
+
+type UpdateDTO struct {
+	lastMove MoveDTO
+	turnnow  string
 }
 
 func IsKingInCheck(board *chess.Board, player int) bool {
@@ -113,7 +156,7 @@ func IsKingInCheck(board *chess.Board, player int) bool {
 			square := board[x][y]
 			if square.Owner == opponent {
 				attackMove := chess.Move{
-					PosFrom: chess.Coordinates{x, y},
+					PosFrom: chess.Coordinates{X: x, Y: y},
 					PosTo:   kingPos,
 					Player:  opponent,
 				}
@@ -148,12 +191,12 @@ func findKingPosition(board *chess.Board, player int) chess.Coordinates {
 		for y := 0; y < 8; y++ {
 			square := board[x][y]
 			if square.Owner == player && square.Type == chess.KingType {
-				return chess.Coordinates{x, y}
+				return chess.Coordinates{X: x, Y: y}
 			}
 		}
 	}
-	
-	return chess.Coordinates{-1, -1}
+
+	return chess.Coordinates{X: -1, Y: -1}
 }
 
 func GenericMatchMoveValidation(move *chess.Move, board *chess.Board) string {

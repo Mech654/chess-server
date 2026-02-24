@@ -16,6 +16,16 @@ type GameState struct {
 	MoveRecords MoveRecords
 }
 
+func (gs *GameState) ApplyMove(move Move) {
+	// Remove piece from original position and place it in the new position
+	piece := gs.Board.GetSquareAt(move.PosFrom)
+	gs.Board[move.PosTo.X][move.PosTo.Y] = piece
+	gs.Board[move.PosFrom.X][move.PosFrom.Y] = &BoardSquare{Type: EmptyType, Owner: 3}
+
+	// Record the move
+	gs.MoveRecords.AddMove(move)
+}
+
 type Piece interface {
 	IsLegalPieceMove(move Move, gameState *GameState) bool
 }
