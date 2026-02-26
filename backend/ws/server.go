@@ -51,6 +51,7 @@ func (s *Server) ServeWS(w http.ResponseWriter, r *http.Request, username string
 	go client.writePump()
 
 	defer func() {
+		client.PrepareClose()
 		client.GetHandler().HandleDisconnect(client)
 		client.Close()
 	}()
