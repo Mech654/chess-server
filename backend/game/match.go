@@ -117,32 +117,32 @@ func (m *MatchHandler) HandleMessage(client *ws.Client, data []byte) {
 func clientSendUpdate(match *Match, moveDTO MoveDTO) {
 	if match.Player1.Username == match.MatchState.WhitePlayer {
 		match.Player1.Send(ws.EnvelopeMarshal("MOVE_MADE", UpdateDTO{
-			lastMove: moveDTO,
-			turnnow:  match.MatchState.Turn,
+			LastMove: moveDTO,
+			Turnnow:  match.MatchState.Turn,
 		}))
 	} else {
 		match.Player1.Send(ws.EnvelopeMarshal("MOVE_MADE", UpdateDTO{
-			lastMove: *reverseMoveDTO(&moveDTO),
-			turnnow:  match.MatchState.Turn,
+			LastMove: *reverseMoveDTO(&moveDTO),
+			Turnnow:  match.MatchState.Turn,
 		}))
 	}
 
 	if match.Player2.Username == match.MatchState.WhitePlayer {
 		match.Player2.Send(ws.EnvelopeMarshal("MOVE_MADE", UpdateDTO{
-			lastMove: moveDTO,
-			turnnow:  match.MatchState.Turn,
+			LastMove: moveDTO,
+			Turnnow:  match.MatchState.Turn,
 		}))
 	} else {
 		match.Player2.Send(ws.EnvelopeMarshal("MOVE_MADE", UpdateDTO{
-			lastMove: *reverseMoveDTO(&moveDTO),
-			turnnow:  match.MatchState.Turn,
+			LastMove: *reverseMoveDTO(&moveDTO),
+			Turnnow:  match.MatchState.Turn,
 		}))
 	}
 }
 
 type UpdateDTO struct {
-	lastMove MoveDTO
-	turnnow  string
+	LastMove MoveDTO `json:"last_move"`
+	Turnnow  string  `json:"turn_now"`
 }
 
 func IsKingInCheck(board *chess.Board, player int) bool {
