@@ -4,15 +4,22 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/Mech654/chess-server/backend/auth"
 	"github.com/gorilla/websocket"
 )
+
+
 
 var server *Server = NewServer()
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
+
+type HandlerType int
+const (
+    LobbyHandler HandlerType = iota
+    MatchHandler
+)
 
 type Handler interface {
 	HandleConnect(client *Client)
@@ -26,24 +33,17 @@ func NewServer() *Server {
 	return &Server{}
 }
 
-func WSHandler(handler Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		username, err := auth.GetUsernameFromToken(r)
-		if err != nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-		server.ServeWS(w, r, username, handler)
-	}
-}
-
-func (s *Server) ServeWS(w http.ResponseWriter, r *http.Request, username string, handler Handler) {
+func WSHandler(handler Handler, w http.ResponseWriter, r *http.Request, username string) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Upgrade error:", err)
 		return
 	}
+	server.ServeWS(conn, username, handler)
 
+}
+
+func (s *Server) ServeWS(conn *websocket.Conn, username string, handler Handler) {
 	client := NewClient(username, conn, handler)
 
 	handler.HandleConnect(client)

@@ -50,7 +50,7 @@ func NewLobby() *Lobby {
 	}
 }
 
-func NewHandler(lobby *Lobby) *LobbyHandler {
+func NewLobbyHandler(lobby *Lobby) *LobbyHandler {
 	return &LobbyHandler{lobby: lobby}
 }
 

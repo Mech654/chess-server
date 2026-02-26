@@ -37,6 +37,10 @@ type MoveDTO struct {
 	PosTo   [2]int `json:"pos_to"`
 }
 
+func FindPlayerMatch(matchHandlers map[string]*MatchHandler, username string) *MatchHandler {
+	return nil
+}
+
 func (mh *MatchHandler) HandleConnect(client *ws.Client) {
 	//TODO: As of now, I will likely use this to implement re-connect if I
 	// can figure that out. And another plan is match join link, so people
