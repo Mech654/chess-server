@@ -25,7 +25,7 @@ func main() {
 
 	mux.HandleFunc("/join", auth.JoinHandler)
 	mux.HandleFunc("/ws/lobby", newHandler(ws.LobbyHandler))
-	mux.HandleFunc("/ws/match{id}", newHandler(ws.MatchHandler))
+	mux.HandleFunc("/ws/match/{id}", newHandler(ws.MatchHandler))
 
 	fmt.Println("Starting server on :8888")
 	log.Fatal(http.ListenAndServe(":8888", mux))
