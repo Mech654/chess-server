@@ -2,6 +2,8 @@ package game
 
 import (
 	"math/rand"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/Mech654/chess-server/backend/chess"
@@ -30,6 +32,7 @@ type MatchInvite struct {
 
 type MatchHandler struct {
 	match *Match
+	id uint64
 }
 
 type MoveDTO struct {
@@ -37,8 +40,42 @@ type MoveDTO struct {
 	PosTo   [2]int `json:"pos_to"`
 }
 
-func FindPlayerMatch(matchHandlers map[string]*MatchHandler, username string) *MatchHandler {
-	return nil
+func FindPlayerMatch(matchHandlers *sync.Map, id uint64, username string) *MatchHandler {
+	// Originally I thought just to use username, then I decided having a key
+	// would be more efficient, now i recalled that I want users to automaticly connect
+	// if they have an active match. So I will use both methods.
+
+	// Try by ID first (fast path)
+	value, ok := matchHandlers.Load(id)
+	if ok {
+		return value.(*MatchHandler)
+	}
+
+	// Fall back to username search
+	var found *MatchHandler
+	matchHandlers.Range(func(_, value any) bool {
+		handler := value.(*MatchHandler)
+		if handler.match.Player1.Username == username || handler.match.Player2.Username == username {
+			found = handler
+			return false // stop iterating
+		}
+		return true // keep iterating
+	})
+
+	return found
+}
+
+func CheckOngoingMatch(matchHandlers *sync.Map, username string) *MatchHandler {
+	var found *MatchHandler
+	matchHandlers.Range(func(_, value any) bool {
+		handler := value.(*MatchHandler)
+		if handler.match.Player1.Username == username || handler.match.Player2.Username == username {
+			found = handler
+			return false
+		}
+		return true
+	})
+	return found
 }
 
 func (mh *MatchHandler) HandleConnect(client *ws.Client) {
@@ -51,7 +88,7 @@ func (mh *MatchHandler) HandleDisconnect(client *ws.Client) {
 	//TODO: handle disconnect - forfeit or pause?
 }
 
-func (m *Match) Start() {
+func (m *Match) Start(id uint64) {
 	if rand.Intn(2) == 1 {
 		m.MatchState.WhitePlayer = m.Player1.Username
 	} else {
@@ -62,10 +99,12 @@ func (m *Match) Start() {
 	m.Player1.Send(ws.EnvelopeMarshal("MATCH_START", map[string]string{
 		"opponent":   m.Player2.Username,
 		"first_move": m.MatchState.WhitePlayer,
+		"match_id":   strconv.FormatUint(id, 10),
 	}))
 	m.Player2.Send(ws.EnvelopeMarshal("MATCH_START", map[string]string{
 		"opponent":   m.Player1.Username,
 		"first_move": m.MatchState.WhitePlayer,
+		"match_id":   strconv.FormatUint(id, 10),
 	}))
 
 	for {

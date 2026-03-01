@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
+	"sync"
 
 	"github.com/Mech654/chess-server/backend/auth"
 	"github.com/Mech654/chess-server/backend/game"
@@ -12,8 +14,8 @@ import (
 )
 
 var (
-	matchHandlers = make(map[string]*game.MatchHandler)
-	globalLobby = game.NewLobbyHandler(game.NewLobby())
+	matchHandlers = sync.Map{}
+	globalLobby = game.NewLobbyHandler(game.NewLobby(&matchHandlers))
 )
 
 func main() {
@@ -23,7 +25,7 @@ func main() {
 
 	mux.HandleFunc("/join", auth.JoinHandler)
 	mux.HandleFunc("/ws/lobby", newHandler(ws.LobbyHandler))
-	mux.HandleFunc("/ws/match", newHandler(ws.MatchHandler))
+	mux.HandleFunc("/ws/match{id}", newHandler(ws.MatchHandler))
 
 	fmt.Println("Starting server on :8888")
 	log.Fatal(http.ListenAndServe(":8888", mux))
@@ -34,6 +36,7 @@ func main() {
 func newHandler(handlerType ws.HandlerType) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		username, err := auth.GetUsernameFromToken(r)
+		id := r.PathValue("id")
 
 		if err != nil {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -42,9 +45,19 @@ func newHandler(handlerType ws.HandlerType) http.HandlerFunc {
 		var handler ws.Handler
 		switch handlerType {
 			case ws.LobbyHandler:
-				handler = globalLobby
+				matchHandler := game.CheckOngoingMatch(&matchHandlers, username)
+				if matchHandler != nil {
+					handler = matchHandler
+				} else {
+					handler = globalLobby
+				}
 			case ws.MatchHandler:
-				handler = game.FindPlayerMatch(matchHandlers, username)
+				val, err := strconv.ParseUint(id, 10, 64)
+				if err != nil {
+					http.Error(w, "Invalid match ID", http.StatusBadRequest)
+					return
+				}
+				handler = game.FindPlayerMatch(&matchHandlers, val, username)
 				if handler == nil {
 					http.Error(w, "No active match found", http.StatusNotFound)
 					return

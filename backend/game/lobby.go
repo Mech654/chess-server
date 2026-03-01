@@ -13,13 +13,16 @@ import (
 
 var (
 	inviteCounter uint64
+	matchCounter uint64
 	matchInvites  = make(map[uint64]*MatchInvite)
 	invitesMutex  sync.Mutex
+
 )
 
 type Lobby struct {
 	clients map[*ws.Client]struct{}
 	mutex   sync.Mutex
+	matchHandlers *sync.Map
 }
 
 type LobbyHandler struct {
@@ -44,9 +47,10 @@ func (mi *MatchInvite) timer() {
 	delete(matchInvites, mi.ID)
 }
 
-func NewLobby() *Lobby {
+func NewLobby(matchHandler *sync.Map) *Lobby {
 	return &Lobby{
 		clients: make(map[*ws.Client]struct{}),
+		matchHandlers: matchHandler,
 	}
 }
 
@@ -165,11 +169,13 @@ func (lh *LobbyHandler) NewMatchAccept(client *ws.Client, data json.RawMessage) 
 		CreatedAt:  time.Now(),
 	}
 
-	matchHandler := &MatchHandler{match: match}
+	matchHandler := &MatchHandler{match: match, id: atomic.AddUint64(&matchCounter, 1)}
+	lh.lobby.matchHandlers.Store(matchHandler.id, matchHandler)
+
 	foundInvite.FromClient.SetHandler(matchHandler)
 	foundInvite.ToClient.SetHandler(matchHandler)
 
-	go match.Start()
+	go match.Start(matchHandler.id)
 
 	return nil
 }
