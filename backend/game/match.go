@@ -159,33 +159,25 @@ func (m *MatchHandler) HandleMessage(client *ws.Client, data []byte) {
 	// Apply the move
 	m.match.MatchState.GameState.ApplyMove(*move)
 	m.match.changeTurn()
-	clientSendUpdate(m.match, moveDTO)
+	clientSendUpdate(m.match, moveDTO, client.Username)
 }
 
-func clientSendUpdate(match *Match, moveDTO MoveDTO) {
-	if match.Player1.Username == match.MatchState.WhitePlayer {
-		match.Player1.Send(ws.EnvelopeMarshal("MOVE_MADE", UpdateDTO{
-			LastMove: moveDTO,
-			Turnnow:  match.MatchState.Turn,
-		}))
-	} else {
-		match.Player1.Send(ws.EnvelopeMarshal("MOVE_MADE", UpdateDTO{
-			LastMove: *reverseMoveDTO(&moveDTO),
+func clientSendUpdate(match *Match, moveDTO MoveDTO, moverUsername string) {
+	// moveDTO is in the mover's coordinate perspective.
+	// Send as-is to the mover, reversed to the opponent.
+	sendTo := func(player *ws.Client) {
+		dto := moveDTO
+		if player.Username != moverUsername {
+			dto = *reverseMoveDTO(&moveDTO)
+		}
+		player.Send(ws.EnvelopeMarshal("MOVE_MADE", UpdateDTO{
+			LastMove: dto,
 			Turnnow:  match.MatchState.Turn,
 		}))
 	}
 
-	if match.Player2.Username == match.MatchState.WhitePlayer {
-		match.Player2.Send(ws.EnvelopeMarshal("MOVE_MADE", UpdateDTO{
-			LastMove: moveDTO,
-			Turnnow:  match.MatchState.Turn,
-		}))
-	} else {
-		match.Player2.Send(ws.EnvelopeMarshal("MOVE_MADE", UpdateDTO{
-			LastMove: *reverseMoveDTO(&moveDTO),
-			Turnnow:  match.MatchState.Turn,
-		}))
-	}
+	sendTo(match.Player1)
+	sendTo(match.Player2)
 }
 
 type UpdateDTO struct {
