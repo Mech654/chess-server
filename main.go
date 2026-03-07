@@ -57,11 +57,13 @@ func newHandler(handlerType ws.HandlerType) http.HandlerFunc {
 					http.Error(w, "Invalid match ID", http.StatusBadRequest)
 					return
 				}
-				handler = game.FindPlayerMatch(&matchHandlers, val, username)
-				if handler == nil {
+
+				matchHandler := game.FindPlayerMatch(&matchHandlers, val, username)
+				if matchHandler == nil {
 					http.Error(w, "No active match found", http.StatusNotFound)
 					return
 				}
+				handler = matchHandler
 		}
 
 		ws.WSHandler(handler, w, r, username)
