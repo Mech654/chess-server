@@ -123,6 +123,7 @@ func (m *Match) changeTurn() {
 func (m *MatchHandler) HandleMessage(client *ws.Client, data []byte) {
 	var envelope ws.Envelope
 	if err := ws.Unmarshal(data, &envelope); err != nil {
+		client.Send(ws.EnvelopeMarshal("ERROR", "Invalid message format"))
 		return
 	}
 
