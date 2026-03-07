@@ -1,25 +1,52 @@
 (function () {
-  // --- URL params set by lobby.js on MATCH_START ---
-  const params      = new URLSearchParams(location.search);
-  const myUsername  = params.get('me')         || 'You';
-  const opponent    = params.get('opponent')   || 'Opponent';
-  const firstMove   = params.get('first_move') || '';
-  const matchId     = params.get('match_id')   || '0';
+  // ── URL params from lobby redirect ──────────────────────────────────────────
+  const params     = new URLSearchParams(location.search);
+  const myUsername = params.get('me')         || 'You';
+  const opponent   = params.get('opponent')   || 'Opponent';
+  const firstMove  = params.get('first_move') || '';
+  const matchId    = params.get('match_id')   || '0';
 
-  const amWhite = myUsername === firstMove; // true → I play white, move first
-  let myTurn    = amWhite;
-  let selected  = null; // { x, y } or null
+  const amWhite = myUsername === firstMove;
+  let myTurn    = amWhite;   // white moves first
+  let selected  = null;      // { x, y } or null
+  let lastMove  = null;      // { from:[x,y], to:[x,y] } for highlight
   let ws        = null;
 
-  // boardState[x][y] = { type: string, mine: bool } | null
-  // Coordinates are always in the receiver's own perspective:
-  //   y=0 own back rank, y=1 own pawns, y=6 opp pawns, y=7 opp back rank
-  // (the backend reverses coords for black via reverseMoveDTO, so both
-  //  players always work in the same logical space)
+  // boardState[x][y] = { type, mine } | null
+  // Both players work in their own perspective: y=0 own back rank, y=7 opponent
   const boardState = Array.from({ length: 8 }, () => new Array(8).fill(null));
-
   const BACK_RANK  = ['Rook','Knight','Bishop','Queen','King','Bishop','Knight','Rook'];
-  const SYMBOLS    = { Pawn:'♟', Rook:'♜', Knight:'♞', Bishop:'♝', Queen:'♛', King:'♚' };
+
+  // Piece colors for this player
+  const myColor  = amWhite ? 'w' : 'b';
+  const oppColor = amWhite ? 'b' : 'w';
+
+  // ── Piece images (Wikimedia Commons, public domain, Colin M.L. Burnett) ───
+  const IMG = {
+    w: {
+      King:   'https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg',
+      Queen:  'https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg',
+      Rook:   'https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg',
+      Bishop: 'https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg',
+      Knight: 'https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg',
+      Pawn:   'https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg',
+    },
+    b: {
+      King:   'https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg',
+      Queen:  'https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg',
+      Rook:   'https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg',
+      Bishop: 'https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg',
+      Knight: 'https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg',
+      Pawn:   'https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg',
+    }
+  };
+
+  // Preload all piece images
+  function preloadImages() {
+    for (const c of ['w', 'b'])
+      for (const t of Object.keys(IMG[c]))
+        new Image().src = IMG[c][t];
+  }
 
   // ── Board initialisation ────────────────────────────────────────────────────
   function initBoard() {
@@ -35,26 +62,37 @@
   function renderBoard() {
     const bd = document.getElementById('board');
     bd.innerHTML = '';
-    // Screen row 0 = logical rank 7 (opponent's back rank at top)
+
     for (let screenRow = 0; screenRow < 8; screenRow++) {
       const y = 7 - screenRow;
       for (let x = 0; x < 8; x++) {
         const sq = document.createElement('div');
-        // a1 (x=0,y=0) is a dark square in standard chess: (x+y) even → dark
         sq.className = 'square ' + ((x + y) % 2 === 0 ? 'dark' : 'light');
         sq.dataset.x = x;
         sq.dataset.y = y;
 
-        const piece = boardState[x][y];
-        if (piece) {
-          const pi = document.createElement('div');
-          pi.className = 'piece ' + (piece.mine ? 'mine' : 'theirs');
-          pi.textContent = SYMBOLS[piece.type] || '?';
-          sq.appendChild(pi);
+        // Last-move highlight
+        if (lastMove) {
+          const [fx, fy] = lastMove.from;
+          const [tx, ty] = lastMove.to;
+          if ((x === fx && y === fy) || (x === tx && y === ty))
+            sq.classList.add('last-move');
         }
 
-        if (selected && selected.x === x && selected.y === y) {
+        // Selected highlight
+        if (selected && selected.x === x && selected.y === y)
           sq.classList.add('selected');
+
+        // Piece
+        const piece = boardState[x][y];
+        if (piece) {
+          const color = piece.mine ? myColor : oppColor;
+          const img   = document.createElement('img');
+          img.className = 'piece-img';
+          img.src       = IMG[color][piece.type];
+          img.alt       = piece.type;
+          img.draggable = false;
+          sq.appendChild(img);
         }
 
         sq.addEventListener('click', () => onSquareClick(x, y));
@@ -66,15 +104,23 @@
   // ── Interaction ─────────────────────────────────────────────────────────────
   function onSquareClick(x, y) {
     if (!myTurn) return;
+
     const piece = boardState[x][y];
 
     if (selected) {
+      // Deselect
       if (selected.x === x && selected.y === y) {
-        // Deselect
         selected = null;
         renderBoard();
         return;
       }
+      // Re-select another own piece
+      if (piece && piece.mine) {
+        selected = { x, y };
+        renderBoard();
+        return;
+      }
+      // Attempt move
       sendMove(selected.x, selected.y, x, y);
       selected = null;
       renderBoard();
@@ -95,23 +141,23 @@
   }
 
   // ── State update ────────────────────────────────────────────────────────────
-  // Both players receive last_move already in their own coordinate perspective
   function applyMove(posFrom, posTo) {
     const [fx, fy] = posFrom;
     const [tx, ty] = posTo;
     boardState[tx][ty] = boardState[fx][fy];
     boardState[fx][fy] = null;
+    lastMove = { from: [fx, fy], to: [tx, ty] };
   }
 
   // ── UI helpers ──────────────────────────────────────────────────────────────
   function updateTurnUI() {
     const ti = document.getElementById('turnIndicator');
     if (myTurn) {
-      ti.textContent  = 'Your turn';
-      ti.className    = 'turn-indicator your-turn';
+      ti.textContent = 'Your turn';
+      ti.className   = 'turn-indicator your-turn';
     } else {
-      ti.textContent  = "Opponent's turn";
-      ti.className    = 'turn-indicator';
+      ti.textContent = "Opponent's turn";
+      ti.className   = 'turn-indicator';
     }
   }
 
@@ -135,11 +181,12 @@
           const d = msg.data;
           applyMove(d.last_move.pos_from, d.last_move.pos_to);
           myTurn = (d.turn_now === myUsername);
+          selected = null;
           renderBoard();
           updateTurnUI();
         } else if (msg.type === 'ERROR') {
           const text = typeof msg.data === 'string' ? msg.data : JSON.stringify(msg.data);
-          showStatus('⚠ ' + text, 3000);
+          showStatus(text, 3000);
         }
       } catch (e) {}
     };
@@ -156,8 +203,9 @@
     document.getElementById('yourName').textContent     = myUsername;
     document.getElementById('opponentRole').textContent = amWhite ? 'Black' : 'White';
     document.getElementById('yourRole').textContent     = amWhite ? 'White' : 'Black';
-    updateTurnUI();
+    preloadImages();
     initBoard();
+    updateTurnUI();
     renderBoard();
     connect();
   });
