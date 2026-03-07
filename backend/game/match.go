@@ -79,9 +79,13 @@ func CheckOngoingMatch(matchHandlers *sync.Map, username string) *MatchHandler {
 }
 
 func (mh *MatchHandler) HandleConnect(client *ws.Client) {
-	//TODO: As of now, I will likely use this to implement re-connect if I
-	// can figure that out. And another plan is match join link, so people
-	// dont have to join my "intuitive" lobby.
+	if mh.match.Player1.Username == client.Username {
+		mh.match.Player1 = client
+	} else if mh.match.Player2.Username == client.Username {
+		mh.match.Player2 = client
+	}
+
+	//TODO: send current game state
 }
 
 func (mh *MatchHandler) HandleDisconnect(client *ws.Client) {
