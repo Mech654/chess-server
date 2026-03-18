@@ -15,7 +15,9 @@
   // boardState[x][y] = { type, mine } | null
   // Both players work in their own perspective: y=0 own back rank, y=7 opponent
   const boardState = Array.from({ length: 8 }, () => new Array(8).fill(null));
-  const BACK_RANK  = ['Rook','Knight','Bishop','Queen','King','Bishop','Knight','Rook'];
+  const BACK_RANK  = amWhite
+    ? ['Rook','Knight','Bishop','Queen','King','Bishop','Knight','Rook']
+    : ['Rook','Knight','Bishop','King','Queen','Bishop','Knight','Rook'];
 
   // Piece colors for this player
   const myColor  = amWhite ? 'w' : 'b';
@@ -144,9 +146,58 @@
   function applyMove(posFrom, posTo) {
     const [fx, fy] = posFrom;
     const [tx, ty] = posTo;
-    boardState[tx][ty] = boardState[fx][fy];
+    const movedPiece = boardState[fx][fy];
+    boardState[tx][ty] = movedPiece;
     boardState[fx][fy] = null;
     lastMove = { from: [fx, fy], to: [tx, ty] };
+    return movedPiece;
+  }
+
+  function readPos(pos) {
+    if (!pos) return null;
+    if (Array.isArray(pos) && pos.length === 2) return pos;
+    if (typeof pos.X === 'number' && typeof pos.Y === 'number') return [pos.X, pos.Y];
+    if (typeof pos.x === 'number' && typeof pos.y === 'number') return [pos.x, pos.y];
+    return null;
+  }
+
+  function getSpecialMoveEffect(lastMovePayload) {
+    if (!lastMovePayload) return null;
+    const effect = lastMovePayload.SpecialMoveEffect ||
+      lastMovePayload.specialMoveEffect ||
+      lastMovePayload.special_move_effect ||
+      null;
+    if (!effect) return null;
+    const effectType = effect.SpecialMoveType || effect.specialMoveType || effect.special_move_type;
+    if (!effectType) return null;
+    return effect;
+  }
+
+  function applySpecialMoveEffect(effect, movedPiece) {
+    if (!effect) return;
+
+    const from = readPos(effect.PosFrom || effect.pos_from);
+    const to = readPos(effect.PosTo || effect.pos_to);
+    const effectType = effect.SpecialMoveType || effect.specialMoveType || effect.special_move_type;
+    let pieceType = effect.PieceType || effect.piece_type || effect.pieceType;
+    if (!pieceType && effectType === 'promotion') {
+      pieceType = 'Queen';
+    }
+
+    const fromPiece = from ? boardState[from[0]][from[1]] : null;
+    const mine = (fromPiece && fromPiece.mine !== undefined)
+      ? fromPiece.mine
+      : (movedPiece && movedPiece.mine !== undefined ? movedPiece.mine : true);
+
+    if (from) {
+      boardState[from[0]][from[1]] = null;
+    }
+
+    if (to && to[0] !== 99 && to[1] !== 99) {
+      if (pieceType) {
+        boardState[to[0]][to[1]] = { type: pieceType, mine };
+      }
+    }
   }
 
   // ── UI helpers ──────────────────────────────────────────────────────────────
@@ -179,7 +230,11 @@
         const msg = JSON.parse(evt.data);
         if (msg.type === 'MOVE_MADE') {
           const d = msg.data;
-          applyMove(d.last_move.pos_from, d.last_move.pos_to);
+          const movedPiece = applyMove(d.last_move.pos_from, d.last_move.pos_to);
+          const effect = getSpecialMoveEffect(d.last_move);
+          if (effect) {
+            applySpecialMoveEffect(effect, movedPiece);
+          }
           myTurn = (d.turn_now === myUsername);
           selected = null;
           renderBoard();

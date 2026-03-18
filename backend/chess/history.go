@@ -19,6 +19,12 @@ func (mr *MoveRecords) GetAllMoves() []Move {
 	return mr.records
 }
 
-// I got an intuition like a search related
-// receiver is crucial, but I dont know why yet
-// So additional will come as needed
+func (mr *MoveRecords) HasPieceMovedFrom(player int, pos Coordinates) bool {
+	for i := range mr.records {
+		move := mr.records[i]
+		if move.Player == player && move.PosFrom.X == pos.X && move.PosFrom.Y == pos.Y {
+			return true
+		}
+	}
+	return false
+}

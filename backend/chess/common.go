@@ -22,12 +22,24 @@ func (gs *GameState) ApplyMove(move Move) {
 	gs.Board[move.PosTo.X][move.PosTo.Y] = piece
 	gs.Board[move.PosFrom.X][move.PosFrom.Y] = &BoardSquare{Type: EmptyType, Owner: 3}
 
+	// Apply Special Move Effect
+	if move.SpecialMoveEffect != nil {
+		piece = gs.Board.GetSquareAt(move.SpecialMoveEffect.PosFrom)
+		gs.Board[move.SpecialMoveEffect.PosFrom.X][move.SpecialMoveEffect.PosFrom.Y] = &BoardSquare{Type: EmptyType, Owner: 3}
+
+		if move.SpecialMoveEffect.PosTo.X != 99 {
+			gs.Board[move.SpecialMoveEffect.PosTo.X][move.SpecialMoveEffect.PosTo.Y] = &BoardSquare{Type: PieceType(move.SpecialMoveEffect.PieceType), Owner: move.Player}
+		}
+	}
+
+
+
 	// Record the move
 	gs.MoveRecords.AddMove(move)
 }
 
 type Piece interface {
-	IsLegalPieceMove(move Move, gameState *GameState) bool
+	IsLegalPieceMove(move *Move, gameState *GameState) bool
 }
 
 // Wanabe enum class
@@ -48,9 +60,18 @@ type Move struct {
 	PosTo        Coordinates
 	Player       int // 1 for white, 2 for black
 	MoveReversed bool
+	SpecialMoveEffect *SpecialMoveEffect
 }
 
-func IsLegalMove(move Move, gameState *GameState) bool {
+type SpecialMoveEffect struct { // Effect Implies Side Effect Of A Move
+	PosFrom Coordinates
+	PosTo   Coordinates // 99;99 for removing piece
+	SpecialMoveType    string // "enpassant", "castling", "promotion"
+	PieceType PieceType // Pawn, Snake, Watermelon etc
+
+}
+
+func IsLegalMove(move *Move, gameState *GameState) bool {
 	square := gameState.Board.GetSquareAt(move.PosFrom)
 
 	var validator Piece

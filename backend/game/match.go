@@ -38,6 +38,7 @@ type MatchHandler struct {
 type MoveDTO struct {
 	PosFrom [2]int `json:"pos_from"`
 	PosTo   [2]int `json:"pos_to"`
+	SpecialMoveEffect chess.SpecialMoveEffect
 }
 
 func FindPlayerMatch(matchHandlers *sync.Map, id uint64, username string) *MatchHandler {
@@ -145,15 +146,19 @@ func (m *MatchHandler) HandleMessage(client *ws.Client, data []byte) {
 		return
 	}
 
-	valid := chess.IsLegalMove(*move, m.match.MatchState.GameState)
+	valid := chess.IsLegalMove(move, m.match.MatchState.GameState)
 	if !valid {
 		client.Send(ws.EnvelopeMarshal("ERROR", "Illegal Move"))
 		return
 	}
 
-	if IsKingInCheck(&m.match.MatchState.GameState.Board, move.Player) {
+	if IsKingInCheck(m.match.MatchState.GameState, move) {
 		client.Send(ws.EnvelopeMarshal("ERROR", "Move would put king in check"))
 		return
+	}
+
+	if move.SpecialMoveEffect != nil {
+		moveDTO.SpecialMoveEffect = *move.SpecialMoveEffect
 	}
 
 	// Apply the move
@@ -185,15 +190,18 @@ type UpdateDTO struct {
 	Turnnow  string  `json:"turn_now"`
 }
 
-func IsKingInCheck(board *chess.Board, player int) bool {
-	kingPos := findKingPosition(board, player)
-	opponent := 3 - player
-	tempState := &chess.GameState{Board: *board}
+func IsKingInCheck(gameState *chess.GameState, move *chess.Move) bool {
+	tempState := &chess.GameState{Board: gameState.Board}
+	tempState.ApplyMove(*move)
 
-	// Check all opponent pieces (max 16)
+	player := move.Player
+	kingPos := findKingPosition(&tempState.Board, player)
+	opponent := 3 - player
+
+	// Check all opponent pieces
 	for x := 0; x < 8; x++ {
 		for y := 0; y < 8; y++ {
-			square := board[x][y]
+			square := tempState.Board[x][y]
 			if square.Owner == opponent {
 				attackMove := chess.Move{
 					PosFrom: chess.Coordinates{X: x, Y: y},
@@ -217,7 +225,7 @@ func IsKingInCheck(board *chess.Board, player int) bool {
 					attacker = &chess.King{}
 				}
 
-				if attacker.IsLegalPieceMove(attackMove, tempState) {
+				if attacker.IsLegalPieceMove(&attackMove, tempState) {
 					return true
 				}
 			}
@@ -267,9 +275,27 @@ func GenericMatchMoveValidation(move *chess.Move, board *chess.Board) string {
 
 func reverseMoveDTO(moveDTO *MoveDTO) *MoveDTO {
 	return &MoveDTO{
-		PosFrom: [2]int{7 - moveDTO.PosFrom[0], 7 - moveDTO.PosFrom[1]},
-		PosTo:   [2]int{7 - moveDTO.PosTo[0], 7 - moveDTO.PosTo[1]},
+		PosFrom:            [2]int{7 - moveDTO.PosFrom[0], 7 - moveDTO.PosFrom[1]},
+		PosTo:              [2]int{7 - moveDTO.PosTo[0], 7 - moveDTO.PosTo[1]},
+		SpecialMoveEffect:  reverseSpecialMoveEffect(moveDTO.SpecialMoveEffect),
 	}
+}
+
+func reverseSpecialMoveEffect(effect chess.SpecialMoveEffect) chess.SpecialMoveEffect {
+	if effect.SpecialMoveType == "" {
+		return effect
+	}
+
+	reverseCoord := func(pos chess.Coordinates) chess.Coordinates {
+		if pos.X == 99 && pos.Y == 99 {
+			return pos
+		}
+		return chess.Coordinates{X: 7 - pos.X, Y: 7 - pos.Y}
+	}
+
+	effect.PosFrom = reverseCoord(effect.PosFrom)
+	effect.PosTo = reverseCoord(effect.PosTo)
+	return effect
 }
 
 func makeMove(client *ws.Client, whitePlayer string, moveDTO *MoveDTO) *chess.Move {

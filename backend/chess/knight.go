@@ -5,7 +5,7 @@ import "math"
 type Knight struct {
 }
 
-func (k *Knight) IsLegalPieceMove(move Move, gameState *GameState) bool {
+func (k *Knight) IsLegalPieceMove(move *Move, gameState *GameState) bool {
 	dx := int(math.Abs(float64(move.PosTo.X - move.PosFrom.X)))
 	dy := int(math.Abs(float64(move.PosTo.Y - move.PosFrom.Y)))
 
