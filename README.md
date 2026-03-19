@@ -32,6 +32,17 @@ Clients hit `/join` to receive a JWT cookie, and every WebSocket request validat
 ### Chess Engine
 The `backend/chess` package implements per-piece move rules, board validation, and special-move support (castling, en passant) using move history to keep the game state consistent and authoritative. The special-move support is not my most proud design, but the way it works is it gives a second slot that can be filled during piece validation and then applied. Example: if the server gets a ws message telling white moved king to l/r by 2, validation accepts that as castle (with more checks), and moves the rook too.
 
+## Run
+
+```bash
+go mod download
+go run main.go
+```
+
+Open http://localhost:8888 in a browser.
+
+Note: If you want to test multiple players locally, use an incognito window (or another browser) so each player gets a separate token cookie, or you will regret it, as I did ://
+
 ## API
 
 ### GET /join
