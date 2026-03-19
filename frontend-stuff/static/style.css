@@ -31,6 +31,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.25);
+  background: rgba(0,0,0,.18);
 }
 .bar-role {
   font-size: .8em;
