@@ -111,10 +111,6 @@ func (m *Match) Start(id uint64) {
 		"first_move": m.MatchState.WhitePlayer,
 		"match_id":   strconv.FormatUint(id, 10),
 	}))
-
-	for {
-		time.Sleep(30 * time.Minute)
-	}
 }
 
 func (m *Match) changeTurn() {
