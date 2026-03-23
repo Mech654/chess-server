@@ -3,6 +3,7 @@ package auth
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -32,25 +33,38 @@ func JoinHandler(w http.ResponseWriter, r *http.Request) {
 func GetUsernameFromToken(r *http.Request) (string, error) {
 	cookie, err := r.Cookie("token")
 	if err != nil {
-		return "", fmt.Errorf("no token cookie found")
+		return "", fmt.Errorf("missing token cookie")
 	}
 
-	token, err := jwt.Parse(cookie.Value, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+	secret := os.Getenv("TOKEN_KEY")
+	if secret == "" {
+		return "", fmt.Errorf("missing TOKEN_KEY env var")
+	}
+
+	token, err := jwt.Parse(cookie.Value, func(t *jwt.Token) (any, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method")
 		}
-		return []byte("Imma_Put_This_In_A_Env_Var_Later"), nil
+		return []byte(secret), nil
 	})
 
 	if err != nil {
 		return "", err
 	}
 
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		if username, ok := claims["username"].(string); ok {
-			return username, nil
-		}
+	if !token.Valid {
+		return "", fmt.Errorf("invalid token")
 	}
 
-	return "", fmt.Errorf("invalid token claims")
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", fmt.Errorf("invalid token claims")
+	}
+
+	username, ok := claims["username"].(string)
+	if !ok {
+		return "", fmt.Errorf("username not found in token")
+	}
+
+	return username, nil
 }
