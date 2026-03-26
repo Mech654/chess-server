@@ -32,18 +32,18 @@ type MatchInvite struct {
 
 type MatchHandler struct {
 	match *Match
-	id uint64
+	id    uint64
 }
 
 type MoveDTO struct {
-	PosFrom [2]int `json:"pos_from"`
-	PosTo   [2]int `json:"pos_to"`
+	PosFrom           [2]int `json:"pos_from"`
+	PosTo             [2]int `json:"pos_to"`
 	SpecialMoveEffect chess.SpecialMoveEffect
 }
 
 func FindPlayerMatch(matchHandlers *sync.Map, id uint64, username string) *MatchHandler {
 	// Originally I thought just to use username, then I decided having a key
-	// would be more efficient, now i recalled that I want users to automaticly connect
+	// would be more efficient, now I recalled that I want users to automatically connect
 	// if they have an active match. So I will use both methods.
 
 	// Try by ID first (fast path)
@@ -134,7 +134,10 @@ func (m *MatchHandler) HandleMessage(client *ws.Client, data []byte) {
 	}
 
 	var moveDTO MoveDTO
-	ws.Unmarshal(envelope.Data, &moveDTO)
+	if err := ws.Unmarshal(envelope.Data, &moveDTO); err != nil {
+		client.Send(ws.EnvelopeMarshal("ERROR", "Invalid message format"))
+		return
+	}
 	move := makeMove(client, m.match.MatchState.WhitePlayer, &moveDTO)
 
 	if err := GenericMatchMoveValidation(move, &m.match.MatchState.GameState.Board); err != "" {
@@ -173,7 +176,7 @@ func clientSendUpdate(match *Match, moveDTO MoveDTO, moverUsername string) {
 		}
 		player.Send(ws.EnvelopeMarshal("MOVE_MADE", UpdateDTO{
 			LastMove: dto,
-			Turnnow:  match.MatchState.Turn,
+			TurnNow:  match.MatchState.Turn,
 		}))
 	}
 
@@ -183,7 +186,7 @@ func clientSendUpdate(match *Match, moveDTO MoveDTO, moverUsername string) {
 
 type UpdateDTO struct {
 	LastMove MoveDTO `json:"last_move"`
-	Turnnow  string  `json:"turn_now"`
+	TurnNow  string  `json:"turn_now"`
 }
 
 func IsKingInCheck(gameState *chess.GameState, move *chess.Move) bool {
@@ -271,9 +274,9 @@ func GenericMatchMoveValidation(move *chess.Move, board *chess.Board) string {
 
 func reverseMoveDTO(moveDTO *MoveDTO) *MoveDTO {
 	return &MoveDTO{
-		PosFrom:            [2]int{7 - moveDTO.PosFrom[0], 7 - moveDTO.PosFrom[1]},
-		PosTo:              [2]int{7 - moveDTO.PosTo[0], 7 - moveDTO.PosTo[1]},
-		SpecialMoveEffect:  reverseSpecialMoveEffect(moveDTO.SpecialMoveEffect),
+		PosFrom:           [2]int{7 - moveDTO.PosFrom[0], 7 - moveDTO.PosFrom[1]},
+		PosTo:             [2]int{7 - moveDTO.PosTo[0], 7 - moveDTO.PosTo[1]},
+		SpecialMoveEffect: reverseSpecialMoveEffect(moveDTO.SpecialMoveEffect),
 	}
 }
 
@@ -282,15 +285,15 @@ func reverseSpecialMoveEffect(effect chess.SpecialMoveEffect) chess.SpecialMoveE
 		return effect
 	}
 
-	reverseCoord := func(pos chess.Coordinates) chess.Coordinates {
+	reverseCoordinates := func(pos chess.Coordinates) chess.Coordinates {
 		if pos.X == 99 && pos.Y == 99 {
 			return pos
 		}
 		return chess.Coordinates{X: 7 - pos.X, Y: 7 - pos.Y}
 	}
 
-	effect.PosFrom = reverseCoord(effect.PosFrom)
-	effect.PosTo = reverseCoord(effect.PosTo)
+	effect.PosFrom = reverseCoordinates(effect.PosFrom)
+	effect.PosTo = reverseCoordinates(effect.PosTo)
 	return effect
 }
 

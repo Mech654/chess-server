@@ -24,7 +24,7 @@ flowchart TB
 Chess matches are not executed as long-running processes. Instead, all relevant state is stored and retrieved on demand, and game logic is applied only when actions occur.
 
 ### Websocket & Handlers
-Each WebSocket connection is associated with a handler responsible for processing incoming messages. When a message is received, it is forwarded to the assigned handler, which determines how to handle it. Currently there are LobbyHandler and MatchHandler.
+Each WebSocket connection is associated with a handler responsible for processing incoming messages. When a message is received, it is forwarded to the assigned handler, which determines how to handle it. Currently, there are LobbyHandler and MatchHandler.
 
 ### Auth
 Clients hit `/join` to receive a JWT cookie, and every WebSocket request validates that token to bind messages to a player identity. This keeps sessions lightweight and avoids server-side state for auth.

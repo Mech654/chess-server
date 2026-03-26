@@ -13,15 +13,14 @@ import (
 
 var (
 	inviteCounter uint64
-	matchCounter uint64
+	matchCounter  uint64
 	matchInvites  = make(map[uint64]*MatchInvite)
 	invitesMutex  sync.Mutex
-
 )
 
 type Lobby struct {
-	clients map[*ws.Client]struct{}
-	mutex   sync.Mutex
+	clients       map[*ws.Client]struct{}
+	mutex         sync.Mutex
 	matchHandlers *sync.Map
 }
 
@@ -49,7 +48,7 @@ func (mi *MatchInvite) timer() {
 
 func NewLobby(matchHandler *sync.Map) *Lobby {
 	return &Lobby{
-		clients: make(map[*ws.Client]struct{}),
+		clients:       make(map[*ws.Client]struct{}),
 		matchHandlers: matchHandler,
 	}
 }
@@ -95,7 +94,7 @@ func (lh *LobbyHandler) HandleMessage(client *ws.Client, data []byte) {
 	var envelope ws.Envelope
 	err := json.Unmarshal(data, &envelope)
 	if err != nil {
-		log.Println("Error unmarshaling message:", err)
+		log.Println("Error unmarshalling message:", err)
 		return
 	}
 
@@ -117,7 +116,9 @@ func (lh *LobbyHandler) NewMatchInvite(client *ws.Client, data json.RawMessage) 
 	newID := atomic.AddUint64(&inviteCounter, 1)
 
 	var inviteDTO MatchInviteDTO
-	ws.Unmarshal(data, &inviteDTO)
+	if err := ws.Unmarshal(data, &inviteDTO); err != nil {
+		log.Println("Invalid format:", err)
+	}
 	inviteDTO.From = client.Username
 
 	toClient := findClientByUsername(lh.lobby, inviteDTO.To)
@@ -126,10 +127,10 @@ func (lh *LobbyHandler) NewMatchInvite(client *ws.Client, data json.RawMessage) 
 	}
 
 	invite := MatchInvite{
-		ID:        newID,
+		ID:         newID,
 		FromClient: client,
-		ToClient:  toClient,
-		CreatedAt: time.Now(),
+		ToClient:   toClient,
+		CreatedAt:  time.Now(),
 	}
 
 	invitesMutex.Lock()
@@ -143,13 +144,15 @@ func (lh *LobbyHandler) NewMatchInvite(client *ws.Client, data json.RawMessage) 
 
 func (lh *LobbyHandler) NewMatchAccept(client *ws.Client, data json.RawMessage) error {
 	var acceptDTO MatchAcceptDTO
-	ws.Unmarshal(data, &acceptDTO)
+	if err := ws.Unmarshal(data, &acceptDTO); err != nil {
+		return err
+	}
 
 	invitesMutex.Lock()
 	defer invitesMutex.Unlock()
 	var foundInvite *MatchInvite
 	for _, invite := range matchInvites {
-		if invite.FromClient.Username == acceptDTO.From && invite.ToClient.Username == acceptDTO.To {
+		if invite.FromClient.Username == acceptDTO.From && invite.ToClient.Username == client.Username {
 			foundInvite = invite
 			break
 		}

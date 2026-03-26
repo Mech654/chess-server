@@ -13,15 +13,16 @@ type Mobility struct {
 	Y int
 }
 
-// Only the unconditional mobility of the piece, not considering other pieces on the board
+// GetMobility returns the unconditional mobility of the piece, not considering other pieces on the board
 func (p *Pawn) GetMobility() Mobility {
 	return Mobility{
 		X: 0, Y: 1,
 	}
 }
 
-// For pawn we need a slightly different approach as its capture method conflicts with its normal movement, so we need one to be true not all.
 func (p *Pawn) IsLegalPieceMove(move *Move, gameState *GameState) bool {
+	// For pawn, we need a slightly different approach as its capture method
+	//conflicts with its normal movement, so we need one to be true not all.
 	valid := checkBasicMobility(p.GetMobility(), move, &gameState.Board)
 	if valid {
 		applyPromotionIfNeeded(move)
@@ -34,7 +35,7 @@ func (p *Pawn) IsLegalPieceMove(move *Move, gameState *GameState) bool {
 		return true
 	}
 
-	valid = checkEnpassant(move, gameState)
+	valid = checkEnPassant(move, gameState)
 	return valid
 }
 
@@ -77,7 +78,7 @@ func checkBasicMobility(mobility Mobility, move *Move, board *Board) bool {
 			return false
 		}
 
-		if dy == 2 && move.PosFrom.Y != 1 && isPathClear(move.PosFrom, move.PosTo, board){
+		if dy == 2 && move.PosFrom.Y != 1 && isPathClear(move.PosFrom, move.PosTo, board) {
 			return false
 		}
 	} else if move.Player == 2 {
@@ -85,7 +86,7 @@ func checkBasicMobility(mobility Mobility, move *Move, board *Board) bool {
 			return false
 		}
 
-		if dy == -2 && move.PosFrom.Y != 6 && isPathClear(move.PosFrom, move.PosTo, board){
+		if dy == -2 && move.PosFrom.Y != 6 && isPathClear(move.PosFrom, move.PosTo, board) {
 			return false
 		}
 	}
@@ -119,7 +120,7 @@ func checkBasicCapture(move *Move, board *Board) bool {
 	return true
 }
 
-func checkEnpassant(move *Move, gameState *GameState) bool {
+func checkEnPassant(move *Move, gameState *GameState) bool {
 	destSquare := gameState.Board.GetSquareAt(move.PosTo)
 	if destSquare.Owner != 3 {
 		return false
@@ -169,12 +170,11 @@ func checkEnpassant(move *Move, gameState *GameState) bool {
 	}
 
 	move.SpecialMoveEffect = &SpecialMoveEffect{
-		PosFrom: adjacentPos,
-		PosTo:   Coordinates{X: 99, Y: 99},
-		SpecialMoveType:    "enpassant",
-		PieceType: PawnType,
+		PosFrom:         adjacentPos,
+		PosTo:           Coordinates{X: 99, Y: 99},
+		SpecialMoveType: "enpassant",
+		PieceType:       PawnType,
 	}
 
 	return true
 }
-

@@ -11,7 +11,7 @@ type Client struct {
 	Username string
 	conn     *websocket.Conn
 	send     chan []byte
-	done 	chan struct{}
+	done     chan struct{}
 	handler  Handler
 	mutex    sync.RWMutex
 }
@@ -21,7 +21,7 @@ func NewClient(username string, conn *websocket.Conn, handler Handler) *Client {
 		Username: username,
 		conn:     conn,
 		send:     make(chan []byte, 256),
-		done:    make(chan struct{}),
+		done:     make(chan struct{}),
 		handler:  handler,
 	}
 }
@@ -39,18 +39,18 @@ func (c *Client) GetHandler() Handler {
 }
 
 func (c *Client) Send(message []byte) {
-    select {
-    case <-c.done:
-        return
-    case c.send <- message:
-    default:
-        log.Printf("Client %s mailbox full, closing", c.Username)
-        c.Close()
-    }
+	select {
+	case <-c.done:
+		return
+	case c.send <- message:
+	default:
+		log.Printf("Client %s mailbox full, closing", c.Username)
+		c.Close()
+	}
 }
 
 func (c *Client) writePump() {
-	defer c.conn.Close()
+	defer c.Close()
 	for {
 		select {
 		case <-c.done:
@@ -69,5 +69,8 @@ func (c *Client) PrepareClose() {
 }
 
 func (c *Client) Close() {
-	c.conn.Close()
+	err := c.conn.Close()
+	if err != nil {
+		log.Printf("Error closing connection: %v", err)
+	}
 }

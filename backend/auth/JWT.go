@@ -20,7 +20,7 @@ func JoinHandler(w http.ResponseWriter, r *http.Request) {
 		"username": username,
 	})
 
-	tokenString, _ := token.SignedString([]byte("Imma_Put_This_In_A_Env_Var_Later"))
+	tokenString, _ := token.SignedString([]byte(os.Getenv("TOKEN_KEY")))
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "token",
@@ -32,11 +32,13 @@ func JoinHandler(w http.ResponseWriter, r *http.Request) {
 
 func GetUsernameFromToken(r *http.Request) (string, error) {
 	cookie, err := r.Cookie("token")
+
 	if err != nil {
 		return "", fmt.Errorf("missing token cookie")
 	}
 
 	secret := os.Getenv("TOKEN_KEY")
+
 	if secret == "" {
 		return "", fmt.Errorf("missing TOKEN_KEY env var")
 	}

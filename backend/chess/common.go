@@ -32,8 +32,6 @@ func (gs *GameState) ApplyMove(move Move) {
 		}
 	}
 
-
-
 	// Record the move
 	gs.MoveRecords.AddMove(move)
 }
@@ -42,7 +40,7 @@ type Piece interface {
 	IsLegalPieceMove(move *Move, gameState *GameState) bool
 }
 
-// Wanabe enum class
+// Wannabe enum class
 type PieceType string
 
 const (
@@ -52,22 +50,22 @@ const (
 	BishopType PieceType = "Bishop"
 	QueenType  PieceType = "Queen"
 	KingType   PieceType = "King"
-	EmptyType  PieceType = "Empty" // For empty squares, a bit sketcy idk
+	EmptyType  PieceType = "Empty" // For empty squares, a bit sketchy idk
 )
 
 type Move struct {
-	PosFrom      Coordinates
-	PosTo        Coordinates
-	Player       int // 1 for white, 2 for black
-	MoveReversed bool
+	PosFrom           Coordinates
+	PosTo             Coordinates
+	Player            int // 1 for white, 2 for black
+	MoveReversed      bool
 	SpecialMoveEffect *SpecialMoveEffect
 }
 
 type SpecialMoveEffect struct { // Effect Implies Side Effect Of A Move
-	PosFrom Coordinates
-	PosTo   Coordinates // 99;99 for removing piece
-	SpecialMoveType    string // "enpassant", "castling", "promotion"
-	PieceType PieceType // Pawn, Snake, Watermelon etc
+	PosFrom         Coordinates
+	PosTo           Coordinates // 99;99 for removing piece
+	SpecialMoveType string      // "en passant", "castling", "promotion"
+	PieceType       PieceType   // Pawn, Snake, Watermelon etc
 
 }
 
